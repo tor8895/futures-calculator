@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>期貨風控與跨商品平倉系統 (動態保證金與斷頭預測版)</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --text-main: #212529;
+            --red-up: #dc3545;    
+            --green-down: #198754; 
+            --blue-action: #0d6efd;
+            --purple-lev: #6f42c1;
+            --risk-blue: #0d6efd;   
+            --risk-green: #198754;  
+            --risk-orange: #fd7e14; 
+            --risk-red: #dc3545;    
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 2rem 1rem;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 950px;
+            display: grid;
+            gap: 1.5rem;
+        }
+        .card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .flex-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            flex: 1;
+            min-width: 140px;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.85; }
+        .btn-blue { background-color: var(--blue-action); }
+        .btn-red { background-color: var(--red-up); }
+        .btn-green { background-color: var(--green-down); }
+        .btn-gray { background-color: #6c757d; font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            background-color: #e9ecef;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-label { font-size: 0.85rem; color: #6c757d; font-weight: bold;}
+        .stat-value { font-size: 1.4rem; font-weight: bold; margin-top: 0.2rem;}
+        
+        .positive { color: var(--red-up); }
+        .negative { color: var(--green-down); }
+        .risk-blue { color: var(--risk-blue); }
+        .risk-green { color: var(--risk-green); }
+        .risk-orange { color: var(--risk-orange); }
+        .risk-red { color: var(--risk-red); }
+
+        .settings-panel {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .calc-preview {
+            font-size: 0.85rem;
+            color: #495057;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px dashed #ced4da;
+            line-height: 1.5;
+        }
+
+        .danger-alert {
+            background-color: #fff3cd;
+            border: 2px solid #ffecb5;
+            color: #856404;
+            padding: 1.2rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            line-height: 2;
+            font-size: 1.1rem;
+        }
+        .danger-alert.safe {
+            background-color: #d1e7dd;
+            border-color: #badbcc;
+            color: #0f5132;
+        }
+        .highlight-maint {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #dc3545;
+            padding: 0 4px;
+        }
+        .highlight-liq {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #ffffff;
+            background-color: #dc3545;
+            padding: 2px 16px;
+            border-radius: 8px;
+            border: 3px solid #8b0000;
+            display: inline-block;
+            margin: 0 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); transform: scale(1); }
+            50% { transform: scale(1.05); }
+            70% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); transform: scale(1); }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .empty-msg { text-align: center; color: #6c757d; padding: 1rem; }
+        
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .log-item { margin-bottom: 0.4rem; border-bottom: 1px dashed #e9ecef; padding-bottom: 0.3rem; }
+        .unit-badge { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #495057; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="card">
+        <h2>⚙️ 系統保證金參數設定</h2>
+        <div class="settings-panel">
+            <div style="font-size: 0.9rem; color: var(--blue-action); font-weight: bold; margin-bottom: 0.8rem;">
+                基準設定：請輸入「微台」保證金，系統將自動換算小台與大台
+            </div>
+            <div class="flex-row" style="margin-bottom: 0;">
+                <div class="form-group">
+                    <label>微台 原始保證金</label>
+                    <input type="number" id="settingInitial" value="8350" step="50" oninput="updateCalculations()">
+                </div>
+                <div class="form-group">
+                    <label>微台 維持保證金</label>
+                    <input type="number" id="settingMaint" value="6400" step="50" oninput="updateCalculations()">
+                </div>
+                <div class="form-group">
+                    <label>微台 結算保證金</label>
+                    <input type="number" id="settingClear" value="6100" step="50" oninput="updateCalculations()">
+                </div>
+            </div>
+            <div class="calc-preview" id="marginPreview"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>帳戶權益與風控總覽</h2>
+        
+        <div id="dangerAlert" class="danger-alert" style="display:none;"></div>
+
+        <div class="dashboard">
+            <div class="stat-box">
+                <span class="stat-label">即時權益數 (Total Equity)</span>
+                <span class="stat-value" id="dispEquity">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">總未平倉損益</span>
+                <span class="stat-value" id="dispUnrealized">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label" style="color:var(--purple-lev);">實質槓桿 (倉位價值/權益)</span>
+                <span class="stat-value" id="dispLeverage" style="font-size:1.1rem; color:var(--purple-lev);">0.00 倍 (0%)</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label" style="color:var(--blue-action);">要求總原始保證金</span>
+                <span class="stat-value" id="dispReqInitial" style="font-size:1.1rem; color:var(--blue-action);">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label" style="color:#dc3545;">要求總維持保證金</span>
+                <span class="stat-value" id="dispReqMaint" style="font-size:1.1rem; color:#dc3545;">0</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">保證金維持率 (風控燈號)</span>
+                <span class="stat-value" id="dispMarginRatio">N/A</span>
+            </div>
+        </div>
+
+        <div class="flex-row" style="margin-bottom: 0; margin-top: 1rem;">
+            <div class="form-group">
+                <label>出入金操作 (TWD) <span style="font-weight:normal; color:#6c757d; font-size:0.8rem;">目前帳戶餘額: <span id="dispBalance">0</span></span></label>
+                <input type="number" id="fundAmount" placeholder="輸入金額" step="1000">
+            </div>
+            <button class="btn-blue" onclick="processFund(1)">匯入</button>
+            <button class="btn-blue" style="background-color:#343a40;" onclick="processFund(-1)">匯出</button>
+            <button class="btn-gray" onclick="resetAccount()" style="margin-left:auto;">重置帳戶</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>手動下單 / 跨商品自動等值平倉</h2>
+        <div class="flex-row">
+            <div class="form-group">
+                <label>選擇商品</label>
+                <select id="tradeProduct">
+                    <option value="200|大台">大台 (1點 = 200元)</option>
+                    <option value="50|小台">小台 (1點 = 50元)</option>
+                    <option value="10|微台">微台 (1點 = 10元)</option>
+                </select>
+            </div>
+            <div class="form-group" style="max-width: 100px;">
+                <label>口數</label>
+                <input type="number" id="tradeQty" value="1" min="1" step="1">
+            </div>
+            <div class="form-group">
+                <label>委託交易點數</label>
+                <input type="number" id="tradePrice" placeholder="輸入成交點數">
+            </div>
+        </div>
+        <div class="flex-row" style="margin-bottom: 0;">
+            <button class="btn-red" onclick="handleTrade(1)" style="flex:1;">買入做多 (Long)</button>
+            <button class="btn-green" onclick="handleTrade(-1)" style="flex:1;">賣出做空 (Short)</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>庫存部位追蹤</h2>
+        <div class="form-group" style="max-width: 300px; margin-bottom: 1.5rem;">
+            <label style="color: var(--blue-action); font-weight: bold;">輸入現在期貨市場點數 (影響所有試算)</label>
+            <input type="number" id="marketPrice" placeholder="輸入當前市場點數" oninput="updateCalculations()">
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>時間</th>
+                        <th>來源商品</th>
+                        <th>方向</th>
+                        <th>等值乘數 <span style="font-size:0.75rem;font-weight:normal;">(TWD)</span></th>
+                        <th>成本價</th>
+                        <th>目前市價</th>
+                        <th>未平倉損益</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+            </table>
+            <div id="emptyMsg" class="empty-msg">目前無任何未平倉部位</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>帳戶操作日誌</h2>
+        <div class="log-container" id="logContainer"></div>
+    </div>
+
+</div>
+
+<script>
+    let accountBalance = 0;
+    let positions = [];
+    let logs = [];
+    
+    function loadData() {
+        const savedBalance = localStorage.getItem('future_balance_v7');
+        const savedPositions = localStorage.getItem('future_positions_v7');
+        const savedMarket = localStorage.getItem('future_market_price_v7');
+        const savedLogs = localStorage.getItem('future_logs_v7');
+        const savedInitial = localStorage.getItem('future_setting_initial_v7');
+        const savedMaint = localStorage.getItem('future_setting_maint_v7');
+        const savedClear = localStorage.getItem('future_setting_clear_v7');
+        
+        if (savedBalance) accountBalance = parseFloat(savedBalance);
+        if (savedPositions) positions = JSON.parse(savedPositions);
+        if (savedLogs) logs = JSON.parse(savedLogs);
+        if (savedMarket) document.getElementById('marketPrice').value = savedMarket;
+        
+        if (savedInitial) document.getElementById('settingInitial').value = savedInitial;
+        if (savedMaint) document.getElementById('settingMaint').value = savedMaint;
+        if (savedClear) document.getElementById('settingClear').value = savedClear;
+        
+        if (logs.length > 0) renderLogs();
+        else addLog('系統初始化完成，實質槓桿計算機制已啟動。', '');
+        
+        updateCalculations();
+    }
+
+    function saveData() {
+        localStorage.setItem('future_balance_v7', accountBalance);
+        localStorage.setItem('future_positions_v7', JSON.stringify(positions));
+        localStorage.setItem('future_market_price_v7', document.getElementById('marketPrice').value);
+        localStorage.setItem('future_logs_v7', JSON.stringify(logs));
+        localStorage.setItem('future_setting_initial_v7', document.getElementById('settingInitial').value);
+        localStorage.setItem('future_setting_maint_v7', document.getElementById('settingMaint').value);
+        localStorage.setItem('future_setting_clear_v7', document.getElementById('settingClear').value);
+    }
+
+    const fmt = (num) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
+
+    function addLog(msg, colorClass = '') {
+        const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+        logs.unshift({ time, msg, colorClass }); 
+        if (logs.length > 80) logs.pop(); 
+        renderLogs();
+    }
+
+    function renderLogs() {
+        const container = document.getElementById('logContainer');
+        container.innerHTML = logs.map(l => `
+            <div class="log-item ${l.colorClass}">[${l.time}] ${l.msg}</div>
+        `).join('');
+    }
+
+    function processFund(direction) {
+        const amount = parseFloat(document.getElementById('fundAmount').value);
+        if (isNaN(amount) || amount <= 0) return alert('請輸入有效的金額');
+        accountBalance += (amount * direction);
+        addLog(direction === 1 ? `成功匯入：+${fmt(amount)} TWD` : `成功匯出：-${fmt(amount)} TWD`, direction === 1 ? 'positive' : 'negative');
+        document.getElementById('fundAmount').value = '';
+        updateCalculations();
+    }
+
+    function handleTrade(direction) {
+        const tradePrice = parseFloat(document.getElementById('tradePrice').value);
+        const qty = parseInt(document.getElementById('tradeQty').value) || 1;
+        
+        if (isNaN(tradePrice) || tradePrice <= 0) return alert('請輸入有效的委託交易點數');
+        if (qty <= 0) return alert('口數必須大於0');
+
+        const productVal = document.getElementById('tradeProduct').value.split('|');
+        const baseMultiplier = parseFloat(productVal[0]);
+        const productName = productVal[1];
+
+        let incomingMultiplier = baseMultiplier * qty; 
+        let remainingIncoming = incomingMultiplier;
+        const oppositeDirection = -direction;
+        let logsToAdd = [];
+
+        for (let i = 0; i < positions.length; i++) {
+            if (remainingIncoming <= 0) break;
+            
+            let pos = positions[i];
+            if (pos.direction === oppositeDirection && pos.currentMultiplier > 0) {
+                let offsetMultiplier = Math.min(pos.currentMultiplier, remainingIncoming);
+                let pointDiff = (tradePrice - pos.entryPrice) * pos.direction; 
+                let realizedPnL = pointDiff * offsetMultiplier;
+                
+                accountBalance += realizedPnL;
+                pos.currentMultiplier -= offsetMultiplier;
+                remainingIncoming -= offsetMultiplier;
+                
+                const dirLabel = pos.direction === 1 ? '多單' : '空單';
+                const pnlText = realizedPnL >= 0 ? `+${fmt(realizedPnL)}` : fmt(realizedPnL);
+                logsToAdd.push({
+                    msg: `【跨商品抵銷】以 ${productName} 平倉 ${pos.productName}${dirLabel}，抵扣乘數 ${offsetMultiplier}，平倉價 ${fmt(tradePrice)}。損益：${pnlText} TWD`,
+                    isPositive: realizedPnL >= 0
+                });
+            }
+        }
+
+        positions = positions.filter(p => p.currentMultiplier > 0);
+
+        if (remainingIncoming > 0) {
+            const newPos = {
+                id: Date.now() + Math.random(),
+                time: new Date().toLocaleTimeString('zh-TW', { hour12: false }),
+                productName: productName,
+                direction: direction, 
+                entryPrice: tradePrice,
+                currentMultiplier: remainingIncoming, 
+            };
+            positions.push(newPos);
+            
+            const dirLabel = direction === 1 ? '買入多單' : '賣出空單';
+            logsToAdd.push({
+                msg: `【建倉/剩餘轉單】${productName} ${dirLabel}，等值乘數 ${remainingIncoming}，成交價：${fmt(tradePrice)}`,
+                isPositive: null
+            });
+
+            if(!document.getElementById('marketPrice').value) {
+                document.getElementById('marketPrice').value = tradePrice;
+            }
+        }
+        
+        logsToAdd.forEach(log => {
+            let color = '';
+            if (log.isPositive === true) color = 'positive';
+            else if (log.isPositive === false) color = 'negative';
+            addLog(log.msg, color);
+        });
+
+        updateCalculations();
+    }
+
+    function manualClose(id) {
+        const marketPrice = parseFloat(document.getElementById('marketPrice').value) || 0;
+        if (marketPrice <= 0) return alert('請先輸入「現在市場點數」作為平倉價格');
+
+        const index = positions.findIndex(p => p.id === id);
+        if (index > -1) {
+            const pos = positions[index];
+            const pointDiff = (marketPrice - pos.entryPrice) * pos.direction;
+            const realizedPnL = pointDiff * pos.currentMultiplier;
+            
+            accountBalance += realizedPnL;
+            positions.splice(index, 1);
+            
+            const dirLabel = pos.direction === 1 ? '多單' : '空單';
+            addLog(`【手動平倉】結清 ${pos.productName}${dirLabel}，平倉價 ${fmt(marketPrice)}。損益：${realizedPnL >= 0 ? '+' : ''}${fmt(realizedPnL)} TWD`, realizedPnL >= 0 ? 'positive' : 'negative');
+            
+            updateCalculations();
+        }
+    }
+
+    function resetAccount() {
+        if(confirm('確定要清空所有資料嗎？')) {
+            accountBalance = 0;
+            positions = [];
+            logs = [];
+            document.getElementById('marketPrice').value = '';
+            document.getElementById('tradePrice').value = '';
+            updateCalculations();
+            addLog('系統已重置', '');
+        }
+    }
+
+    function updateCalculations() {
+        const mInitial = parseFloat(document.getElementById('settingInitial').value) || 0;
+        const mMaint = parseFloat(document.getElementById('settingMaint').value) || 0;
+        const mClear = parseFloat(document.getElementById('settingClear').value) || 0;
+
+        document.getElementById('marginPreview').innerHTML = `
+            <strong>🔄 自動換算結果：</strong><br>
+            <strong>【小台】</strong> 原始：${fmt(mInitial * 5)} | 維持：${fmt(mMaint * 5)} | 結算：${fmt(mClear * 5)}<br>
+            <strong>【大台】</strong> 原始：${fmt(mInitial * 20)} | 維持：${fmt(mMaint * 20)} | 結算：${fmt(mClear * 20)}
+        `;
+
+        const marketPrice = parseFloat(document.getElementById('marketPrice').value) || 0;
+        
+        let totalUnrealizedPnL = 0;
+        let totalMultiplierInInventory = 0;
+        let totalContractValue = 0; // 用於計算槓桿
+        let netDelta = 0; // 淨曝險乘數
+        
+        const tbody = document.getElementById('inventoryBody');
+        tbody.innerHTML = '';
+
+        positions.forEach(pos => {
+            totalMultiplierInInventory += pos.currentMultiplier;
+            netDelta += (pos.currentMultiplier * pos.direction);
+            
+            let pnl = 0;
+            if (marketPrice > 0) {
+                pnl = (marketPrice - pos.entryPrice) * pos.direction * pos.currentMultiplier;
+                totalUnrealizedPnL += pnl;
+                totalContractValue += (marketPrice * pos.currentMultiplier); // 累加目前合約名目總市值
+            }
+
+            const tr = document.createElement('tr');
+            const dirText = pos.direction === 1 ? '<span style="color:var(--red-up);font-weight:bold;">多</span>' : '<span style="color:var(--green-down);font-weight:bold;">空</span>';
+            const pnlClass = pnl > 0 ? 'positive' : (pnl < 0 ? 'negative' : '');
+            
+            tr.innerHTML = `
+                <td>${pos.time}</td>
+                <td>${pos.productName}</td>
+                <td>${dirText}</td>
+                <td><span class="unit-badge">${pos.currentMultiplier}</span></td>
+                <td>${fmt(pos.entryPrice)}</td>
+                <td>${marketPrice > 0 ? fmt(marketPrice) : '-'}</td>
+                <td class="${pnlClass}">${marketPrice > 0 ? fmt(pnl) : '-'}</td>
+                <td><button class="btn-blue" style="padding:0.3rem 0.6rem;font-size:0.85rem; background-color:#6c757d;" onclick="manualClose(${pos.id})">以此價全平</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('emptyMsg').style.display = positions.length === 0 ? 'block' : 'none';
+
+        const currentEquity = accountBalance + totalUnrealizedPnL;
+        let totalRequiredInitial = (totalMultiplierInInventory / 10) * mInitial;
+        let totalRequiredMaint = (totalMultiplierInInventory / 10) * mMaint;
+
+        // --- 槓桿比率計算邏輯 ---
+        let leverage = 0;
+        let leveragePct = 0;
+        if (currentEquity > 0 && totalContractValue > 0) {
+            leverage = totalContractValue / currentEquity;
+            leveragePct = leverage * 100;
+        }
+
+        // --- 斷頭與追繳風險預測邏輯 ---
+        const dangerAlert = document.getElementById('dangerAlert');
+        if (positions.length === 0 || marketPrice === 0) {
+            dangerAlert.style.display = 'none';
+        } else if (netDelta === 0) {
+            dangerAlert.style.display = 'block';
+            dangerAlert.className = 'danger-alert safe';
+            dangerAlert.innerHTML = '🛡️ 目前多空完全對鎖，淨曝險為 0，不受大盤點數漲跌影響。';
+        } else {
+            dangerAlert.style.display = 'block';
+            dangerAlert.className = 'danger-alert';
+            
+            const directionText = netDelta > 0 ? '下跌' : '上漲';
+            const absDelta = Math.abs(netDelta);
+            
+            const ptsToMaint = (currentEquity - totalRequiredMaint) / absDelta;
+            const ptsToLiq = (currentEquity - totalRequiredInitial * 0.25) / absDelta;
+            
+            let alertHtml = `📉 <strong>部位淨曝險：偏${netDelta > 0 ? '多' : '空'}</strong> (每點跳動 ${fmt(absDelta)} TWD)<br>`;
+            
+            if (ptsToMaint > 0) {
+                alertHtml += `若大盤再 <strong style="color:var(--red-up);">${directionText}</strong> <span class="highlight-maint">${fmt(ptsToMaint)}</span> 點，將低於維持保證金 (面臨盤後追繳)。<br>`;
+            } else {
+                alertHtml += `🚨 <strong>目前已低於維持保證金 (已達追繳標準)！</strong><br>`;
+            }
+            
+            if (ptsToLiq > 0) {
+                alertHtml += `若大盤再 <strong style="color:var(--red-up);">${directionText}</strong> <span class="highlight-liq">${fmt(ptsToLiq)}</span> 點，將觸發 25% 強制斷頭！`;
+            } else {
+                alertHtml += `💥 <span class="highlight-liq" style="font-size:1.6rem; margin-top:10px;">目前已低於 25% 原始保證金 (面臨強制斷頭)！</span>`;
+            }
+            dangerAlert.innerHTML = alertHtml;
+        }
+
+        let marginRatio = 0;
+        let ratioText = 'N/A';
+        let ratioClass = '';
+
+        if (totalRequiredInitial > 0) {
+            marginRatio = (currentEquity / totalRequiredInitial) * 100;
+            ratioText = `${marginRatio.toFixed(2)}%`;
+            
+            if (marginRatio >= 250) {
+                ratioClass = 'risk-blue';
+            } else if (marginRatio >= 200) {
+                ratioClass = 'risk-green';
+            } else if (marginRatio >= 160) {
+                ratioClass = 'risk-orange';
+            } else {
+                ratioClass = 'risk-red';
+            }
+        }
+
+        // --- 渲染畫面資料 ---
+        document.getElementById('dispBalance').textContent = fmt(accountBalance);
+        
+        const dispUnreal = document.getElementById('dispUnrealized');
+        dispUnreal.textContent = fmt(totalUnrealizedPnL);
+        dispUnreal.className = 'stat-value ' + (totalUnrealizedPnL > 0 ? 'positive' : (totalUnrealizedPnL < 0 ? 'negative' : ''));
+        
+        const dispEq = document.getElementById('dispEquity');
+        dispEq.textContent = fmt(currentEquity);
+        dispEq.className = 'stat-value ' + (currentEquity < 0 ? 'negative' : '');
+
+        const dispLev = document.getElementById('dispLeverage');
+        if (currentEquity <= 0 && positions.length > 0) {
+            dispLev.textContent = '超額虧損';
+            dispLev.className = 'stat-value negative';
+            dispLev.style.color = '#dc3545';
+        } else if (marketPrice === 0) {
+            dispLev.textContent = '請輸入市價';
+            dispLev.className = 'stat-value';
+        } else {
+            dispLev.textContent = leverage > 0 ? `${leverage.toFixed(2)} 倍 (${fmt(leveragePct)}%)` : '0.00 倍 (0%)';
+            dispLev.className = 'stat-value';
+            dispLev.style.color = 'var(--purple-lev)';
+        }
+
+        document.getElementById('dispReqInitial').textContent = fmt(totalRequiredInitial);
+        document.getElementById('dispReqMaint').textContent = fmt(totalRequiredMaint);
+
+        const dispMargin = document.getElementById('dispMarginRatio');
+        dispMargin.textContent = ratioText;
+        dispMargin.className = 'stat-value ' + ratioClass;
+
+        saveData(); 
+    }
+
+    window.onload = loadData;
+</script>
+
+</body>
+</html>
