@@ -2,219 +2,275 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>期貨風控</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>期貨風控與庫存系統</title>
     
     <link rel="manifest" href="./manifest.json">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="期貨風控">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#2c3e50">
+    <meta name="theme-color" content="#F2F2F7">
     <style>
-    /* ... 下面原本的 CSS 都不用動 ... */
         :root {
-            --primary-color: #2c3e50;
-            --bg-color: #f4f6f8;
-            --card-bg: #ffffff;
-            --border-color: #dee2e6;
-            --text-main: #212529;
-            --red-up: #dc3545;    
-            --green-down: #198754; 
-            --blue-action: #0d6efd;
-            --purple-lev: #6f42c1;
-            --risk-blue: #0d6efd;   
-            --risk-green: #198754;  
-            --risk-orange: #fd7e14; 
-            --risk-red: #dc3545;    
+            --bg-color: #F2F2F7;         /* iOS 系統灰背景 */
+            --card-bg: #FFFFFF;          /* 純白卡片 */
+            --text-main: #1C1C1E;        /* iOS 深色文字 */
+            --text-secondary: #8E8E93;   /* iOS 次要灰字 */
+            --border-color: #E5E5EA;     /* 分隔線 */
+            --ios-blue: #007AFF;         /* iOS 標準藍 */
+            --tw-red: #FF3B30;           /* 台股漲/做多 紅 */
+            --tw-green: #34C759;         /* 台股跌/做空 綠 */
+            --tw-purple: #AF52DE;        /* 槓桿特選紫 */
+            --risk-orange: #FF9500;      /* 追繳橘 */
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro TC", "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
-            padding: 2rem 1rem;
             margin: 0;
+            padding: 0;
+            padding-top: env(safe-area-inset-top); /* 瀏海避讓 */
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* 鎖定底層滑動 */
         }
-        .container {
-            width: 100%;
-            max-width: 950px;
-            display: grid;
-            gap: 1.5rem;
-        }
-        .card {
+
+        /* 頂部標題列 */
+        .nav-header {
             background-color: var(--card-bg);
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        h2 {
-            margin-top: 0;
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .flex-row {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        .form-group {
-            flex: 1;
-            min-width: 140px;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.4rem;
+            text-align: center;
+            padding: 12px 16px;
+            font-size: 18px;
             font-weight: 600;
-            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
         }
+
+        /* 內容滑動區 */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: 90px; /* 留給底部導覽列的空間 */
+        }
+
+        /* 分頁控制 */
+        .page { display: none; animation: fadeIn 0.2s ease-out; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 卡片共用樣式 */
+        .ios-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        /* 數據 Dashboard */
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .data-item { display: flex; flex-direction: column; }
+        .data-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+        .data-value { font-size: 18px; font-weight: bold; }
+        .data-value.large { font-size: 28px; grid-column: span 2; text-align: center; margin: 10px 0; }
+        
+        .val-red { color: var(--tw-red); }
+        .val-green { color: var(--tw-green); }
+        .val-blue { color: var(--ios-blue); }
+        .val-purple { color: var(--tw-purple); }
+
+        /* 表單元素 */
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
         input[type="number"], select {
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 1rem;
-            box-sizing: border-box;
+            padding: 12px;
+            background-color: #F2F2F7;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 16px; /* 避免 iOS 自動放大 */
+            color: var(--text-main);
+            outline: none;
         }
+        input:focus, select:focus { border-color: var(--ios-blue); background-color: #fff; }
+
+        /* 按鈕樣式 */
+        .btn-row { display: flex; gap: 10px; }
         button {
-            padding: 0.6rem 1.2rem;
+            flex: 1;
+            padding: 14px;
             border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            cursor: pointer;
+            border-radius: 10px;
+            font-size: 16px;
             font-weight: bold;
             color: white;
+            cursor: pointer;
             transition: opacity 0.2s;
         }
-        button:hover { opacity: 0.85; }
-        .btn-blue { background-color: var(--blue-action); }
-        .btn-red { background-color: var(--red-up); }
-        .btn-green { background-color: var(--green-down); }
-        .btn-gray { background-color: #6c757d; font-size: 0.85rem; padding: 0.4rem 0.8rem; }
-        
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 1rem;
-            background-color: #e9ecef;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-        .stat-box { display: flex; flex-direction: column; }
-        .stat-label { font-size: 0.85rem; color: #6c757d; font-weight: bold;}
-        .stat-value { font-size: 1.4rem; font-weight: bold; margin-top: 0.2rem;}
-        
-        .positive { color: var(--red-up); }
-        .negative { color: var(--green-down); }
-        .risk-blue { color: var(--risk-blue); }
-        .risk-green { color: var(--risk-green); }
-        .risk-orange { color: var(--risk-orange); }
-        .risk-red { color: var(--risk-red); }
+        button:active { opacity: 0.7; }
+        .btn-blue { background-color: var(--ios-blue); }
+        .btn-red { background-color: var(--tw-red); }
+        .btn-green { background-color: var(--tw-green); }
+        .btn-gray { background-color: var(--text-secondary); }
 
-        .settings-panel {
-            background-color: #f8f9fa;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .calc-preview {
-            font-size: 0.85rem;
-            color: #495057;
-            margin-top: 0.8rem;
-            padding-top: 0.8rem;
-            border-top: 1px dashed #ced4da;
-            line-height: 1.5;
-        }
-
+        /* 斷頭警告區塊 */
         .danger-alert {
-            background-color: #fff3cd;
-            border: 2px solid #ffecb5;
-            color: #856404;
-            padding: 1.2rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            text-align: center;
-            line-height: 2;
-            font-size: 1.1rem;
+            background-color: #FFF0F0;
+            border: 2px solid #FFD4D4;
+            color: #D8000C;
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            line-height: 1.6;
         }
-        .danger-alert.safe {
-            background-color: #d1e7dd;
-            border-color: #badbcc;
-            color: #0f5132;
-        }
-        .highlight-maint {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #dc3545;
-            padding: 0 4px;
-        }
+        .danger-alert.safe { background-color: #E8F5E9; border-color: #C8E6C9; color: #2E7D32; }
         .highlight-liq {
-            font-size: 2.2rem;
-            font-weight: 900;
-            color: #ffffff;
-            background-color: #dc3545;
-            padding: 2px 16px;
-            border-radius: 8px;
-            border: 3px solid #8b0000;
-            display: inline-block;
-            margin: 0 8px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-size: 20px; font-weight: 900; color: white; background-color: var(--tw-red);
+            padding: 2px 8px; border-radius: 6px; margin: 0 4px;
             animation: pulse 1.5s infinite;
         }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); transform: scale(1); }
-            50% { transform: scale(1.05); }
-            70% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); transform: scale(1); }
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            font-size: 0.95rem;
+        /* 庫存卡片 */
+        .inv-card {
+            background: white; border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 12px; margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
         }
-        th, td {
-            text-align: left;
-            padding: 0.8rem;
-            border-bottom: 1px solid var(--border-color);
+        .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;}
+        .inv-title { font-size: 16px; font-weight: bold; }
+        .inv-time { font-size: 12px; color: var(--text-secondary); }
+        .inv-body { font-size: 14px; color: #444; line-height: 1.5; margin-bottom: 10px; }
+        .inv-action { text-align: right; }
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; color: white; margin-left: 6px; }
+        .badge-red { background: var(--tw-red); }
+        .badge-green { background: var(--tw-green); }
+
+        /* 底部導覽列 (Tab Bar) */
+        .tab-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            z-index: 100;
         }
-        th { background-color: #f8f9fa; font-weight: 600; }
-        .empty-msg { text-align: center; color: #6c757d; padding: 1rem; }
-        
-        .log-container {
-            max-height: 200px;
-            overflow-y: auto;
-            background: #f8f9fa;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 0.5rem;
-            font-family: monospace;
-            font-size: 0.85rem;
+        .tab-item {
+            flex: 1; text-align: center; font-size: 11px;
+            color: var(--text-secondary); font-weight: 500;
+            cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
-        .log-item { margin-bottom: 0.4rem; border-bottom: 1px dashed #e9ecef; padding-bottom: 0.3rem; }
-        .unit-badge { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #495057; }
+        .tab-item.active { color: var(--ios-blue); }
+        .tab-icon { font-size: 22px; }
+
+        /* 日誌 */
+        .log-box { max-height: 150px; overflow-y: auto; font-size: 12px; font-family: monospace; background: #F2F2F7; padding: 8px; border-radius: 8px; }
+        .log-row { border-bottom: 1px dashed #ddd; padding: 4px 0; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    
-    <div class="card">
-        <h2>⚙️ 系統保證金參數設定</h2>
-        <div class="settings-panel">
-            <div style="font-size: 0.9rem; color: var(--blue-action); font-weight: bold; margin-bottom: 0.8rem;">
-                基準設定：請輸入「微台」保證金，系統將自動換算小台與大台
+    <div class="nav-header" id="navTitle">總覽與風控</div>
+
+    <div class="content-area">
+        
+        <div class="page active" id="page-dashboard">
+            <div id="dangerAlert" class="danger-alert" style="display:none;"></div>
+
+            <div class="ios-card">
+                <div class="data-item">
+                    <span class="data-label" style="text-align: center;">即時權益數 (Total Equity)</span>
+                    <span class="data-value large" id="dispEquity">0</span>
+                </div>
+                <div class="data-grid" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                    <div class="data-item"><span class="data-label">帳戶餘額</span><span class="data-value" id="dispBalance">0</span></div>
+                    <div class="data-item"><span class="data-label">未平倉損益</span><span class="data-value" id="dispUnrealized">0</span></div>
+                    <div class="data-item"><span class="data-label">維持率 (燈號)</span><span class="data-value" id="dispMarginRatio">N/A</span></div>
+                    <div class="data-item"><span class="data-label">實質槓桿</span><span class="data-value val-purple" id="dispLeverage">0 倍</span></div>
+                    <div class="data-item"><span class="data-label">要求原始保證金</span><span class="data-value val-blue" id="dispReqInitial">0</span></div>
+                    <div class="data-item"><span class="data-label" style="color:var(--tw-red);">要求維持保證金</span><span class="data-value" style="color:var(--tw-red);" id="dispReqMaint">0</span></div>
+                </div>
             </div>
-            <div class="flex-row" style="margin-bottom: 0;">
+
+            <div class="ios-card">
+                <div class="card-title">資金調撥 (TWD)</div>
+                <div class="form-group">
+                    <input type="number" id="fundAmount" placeholder="輸入金額" step="1000">
+                </div>
+                <div class="btn-row">
+                    <button class="btn-blue" onclick="processFund(1)">匯入款項</button>
+                    <button class="btn-gray" onclick="processFund(-1)">匯出提款</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page" id="page-trade">
+            <div class="ios-card">
+                <div class="card-title">跨商品自動平倉/建倉</div>
+                <div class="form-group">
+                    <label>選擇商品</label>
+                    <select id="tradeProduct">
+                        <option value="200|大台">大台 (1點 = 200元)</option>
+                        <option value="50|小台">小台 (1點 = 50元)</option>
+                        <option value="10|微台" selected>微台 (1點 = 10元)</option>
+                    </select>
+                </div>
+                <div class="data-grid">
+                    <div class="form-group">
+                        <label>委託口數</label>
+                        <input type="number" id="tradeQty" value="1" min="1" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>成交點數</label>
+                        <input type="number" id="tradePrice" placeholder="輸入點數">
+                    </div>
+                </div>
+                <div class="btn-row" style="margin-top: 10px;">
+                    <button class="btn-red" onclick="handleTrade(1)">買入做多 (Long)</button>
+                    <button class="btn-green" onclick="handleTrade(-1)">賣出做空 (Short)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page" id="page-inventory">
+            <div class="ios-card" style="position: sticky; top: -16px; z-index: 5; margin-top: -16px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <label style="color: var(--ios-blue);">動態結算：輸入現在市價點數</label>
+                <input type="number" id="marketPrice" placeholder="輸入大盤現在點數" oninput="updateCalculations()" style="font-size: 18px; font-weight:bold; text-align:center;">
+            </div>
+
+            <div id="emptyMsg" style="text-align: center; color: var(--text-secondary); padding: 40px 0;">目前無任何未平倉部位</div>
+            <div id="inventoryContainer">
+                </div>
+        </div>
+
+        <div class="page" id="page-settings">
+            <div class="ios-card">
+                <div class="card-title">微台基準保證金設定</div>
                 <div class="form-group">
                     <label>微台 原始保證金</label>
                     <input type="number" id="settingInitial" value="8350" step="50" oninput="updateCalculations()">
@@ -227,127 +283,67 @@
                     <label>微台 結算保證金</label>
                     <input type="number" id="settingClear" value="6100" step="50" oninput="updateCalculations()">
                 </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;" id="marginPreview"></div>
             </div>
-            <div class="calc-preview" id="marginPreview"></div>
+
+            <div class="ios-card">
+                <div class="card-title">系統操作日誌</div>
+                <div class="log-box" id="logContainer"></div>
+            </div>
+
+            <button class="btn-gray" style="width: 100%; background-color: #FF3B30;" onclick="resetAccount()">⚠️ 重置所有資料與庫存</button>
         </div>
+
     </div>
 
-    <div class="card">
-        <h2>帳戶權益與風控總覽</h2>
-        
-        <div id="dangerAlert" class="danger-alert" style="display:none;"></div>
-
-        <div class="dashboard">
-            <div class="stat-box">
-                <span class="stat-label">即時權益數 (Total Equity)</span>
-                <span class="stat-value" id="dispEquity">0</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label">總未平倉損益</span>
-                <span class="stat-value" id="dispUnrealized">0</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label" style="color:var(--purple-lev);">實質槓桿 (倉位價值/權益)</span>
-                <span class="stat-value" id="dispLeverage" style="font-size:1.1rem; color:var(--purple-lev);">0.00 倍 (0%)</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label" style="color:var(--blue-action);">要求總原始保證金</span>
-                <span class="stat-value" id="dispReqInitial" style="font-size:1.1rem; color:var(--blue-action);">0</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label" style="color:#dc3545;">要求總維持保證金</span>
-                <span class="stat-value" id="dispReqMaint" style="font-size:1.1rem; color:#dc3545;">0</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label">保證金維持率 (風控燈號)</span>
-                <span class="stat-value" id="dispMarginRatio">N/A</span>
-            </div>
+    <nav class="tab-bar">
+        <div class="tab-item active" onclick="switchTab('dashboard', '總覽與風控')">
+            <div class="tab-icon">📊</div><span>總覽</span>
         </div>
-
-        <div class="flex-row" style="margin-bottom: 0; margin-top: 1rem;">
-            <div class="form-group">
-                <label>出入金操作 (TWD) <span style="font-weight:normal; color:#6c757d; font-size:0.8rem;">目前帳戶餘額: <span id="dispBalance">0</span></span></label>
-                <input type="number" id="fundAmount" placeholder="輸入金額" step="1000">
-            </div>
-            <button class="btn-blue" onclick="processFund(1)">匯入</button>
-            <button class="btn-blue" style="background-color:#343a40;" onclick="processFund(-1)">匯出</button>
-            <button class="btn-gray" onclick="resetAccount()" style="margin-left:auto;">重置帳戶</button>
+        <div class="tab-item" onclick="switchTab('trade', '建立部位')">
+            <div class="tab-icon">⚡️</div><span>下單</span>
         </div>
-    </div>
-
-    <div class="card">
-        <h2>手動下單 / 跨商品自動等值平倉</h2>
-        <div class="flex-row">
-            <div class="form-group">
-                <label>選擇商品</label>
-                <select id="tradeProduct">
-                    <option value="200|大台">大台 (1點 = 200元)</option>
-                    <option value="50|小台">小台 (1點 = 50元)</option>
-                    <option value="10|微台">微台 (1點 = 10元)</option>
-                </select>
-            </div>
-            <div class="form-group" style="max-width: 100px;">
-                <label>口數</label>
-                <input type="number" id="tradeQty" value="1" min="1" step="1">
-            </div>
-            <div class="form-group">
-                <label>委託交易點數</label>
-                <input type="number" id="tradePrice" placeholder="輸入成交點數">
-            </div>
+        <div class="tab-item" onclick="switchTab('inventory', '庫存管理')">
+            <div class="tab-icon">📋</div><span>庫存</span>
         </div>
-        <div class="flex-row" style="margin-bottom: 0;">
-            <button class="btn-red" onclick="handleTrade(1)" style="flex:1;">買入做多 (Long)</button>
-            <button class="btn-green" onclick="handleTrade(-1)" style="flex:1;">賣出做空 (Short)</button>
+        <div class="tab-item" onclick="switchTab('settings', '系統設定')">
+            <div class="tab-icon">⚙️</div><span>設定</span>
         </div>
-    </div>
-
-    <div class="card">
-        <h2>庫存部位追蹤</h2>
-        <div class="form-group" style="max-width: 300px; margin-bottom: 1.5rem;">
-            <label style="color: var(--blue-action); font-weight: bold;">輸入現在期貨市場點數 (影響所有試算)</label>
-            <input type="number" id="marketPrice" placeholder="輸入當前市場點數" oninput="updateCalculations()">
-        </div>
-
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>時間</th>
-                        <th>來源商品</th>
-                        <th>方向</th>
-                        <th>等值乘數 <span style="font-size:0.75rem;font-weight:normal;">(TWD)</span></th>
-                        <th>成本價</th>
-                        <th>目前市價</th>
-                        <th>未平倉損益</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="inventoryBody"></tbody>
-            </table>
-            <div id="emptyMsg" class="empty-msg">目前無任何未平倉部位</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>帳戶操作日誌</h2>
-        <div class="log-container" id="logContainer"></div>
-    </div>
-
-</div>
+    </nav>
 
 <script>
+    /* =========================================
+       UI 互動與分頁切換邏輯
+    ========================================= */
+    function switchTab(tabName, title) {
+        // 隱藏所有頁面
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        // 顯示目標頁面
+        document.getElementById('page-' + tabName).classList.add('active');
+        
+        // 更新標題
+        document.getElementById('navTitle').innerText = title;
+
+        // 更新 Tab 狀態
+        document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+    }
+
+    /* =========================================
+       核心商業邏輯 (完全保留原本的演算法)
+    ========================================= */
     let accountBalance = 0;
     let positions = [];
     let logs = [];
     
     function loadData() {
-        const savedBalance = localStorage.getItem('future_balance_v7');
-        const savedPositions = localStorage.getItem('future_positions_v7');
-        const savedMarket = localStorage.getItem('future_market_price_v7');
-        const savedLogs = localStorage.getItem('future_logs_v7');
-        const savedInitial = localStorage.getItem('future_setting_initial_v7');
-        const savedMaint = localStorage.getItem('future_setting_maint_v7');
-        const savedClear = localStorage.getItem('future_setting_clear_v7');
+        const savedBalance = localStorage.getItem('future_ios_bal');
+        const savedPositions = localStorage.getItem('future_ios_pos');
+        const savedMarket = localStorage.getItem('future_ios_mkt');
+        const savedLogs = localStorage.getItem('future_ios_log');
+        const savedInitial = localStorage.getItem('future_ios_ini');
+        const savedMaint = localStorage.getItem('future_ios_mnt');
+        const savedClear = localStorage.getItem('future_ios_clr');
         
         if (savedBalance) accountBalance = parseFloat(savedBalance);
         if (savedPositions) positions = JSON.parse(savedPositions);
@@ -359,34 +355,35 @@
         if (savedClear) document.getElementById('settingClear').value = savedClear;
         
         if (logs.length > 0) renderLogs();
-        else addLog('系統初始化完成，實質槓桿計算機制已啟動。', '');
+        else addLog('系統初始化完成，iOS 版介面啟動。', '');
         
         updateCalculations();
     }
 
     function saveData() {
-        localStorage.setItem('future_balance_v7', accountBalance);
-        localStorage.setItem('future_positions_v7', JSON.stringify(positions));
-        localStorage.setItem('future_market_price_v7', document.getElementById('marketPrice').value);
-        localStorage.setItem('future_logs_v7', JSON.stringify(logs));
-        localStorage.setItem('future_setting_initial_v7', document.getElementById('settingInitial').value);
-        localStorage.setItem('future_setting_maint_v7', document.getElementById('settingMaint').value);
-        localStorage.setItem('future_setting_clear_v7', document.getElementById('settingClear').value);
+        localStorage.setItem('future_ios_bal', accountBalance);
+        localStorage.setItem('future_ios_pos', JSON.stringify(positions));
+        localStorage.setItem('future_ios_mkt', document.getElementById('marketPrice').value);
+        localStorage.setItem('future_ios_log', JSON.stringify(logs));
+        localStorage.setItem('future_ios_ini', document.getElementById('settingInitial').value);
+        localStorage.setItem('future_ios_mnt', document.getElementById('settingMaint').value);
+        localStorage.setItem('future_ios_clr', document.getElementById('settingClear').value);
     }
 
     const fmt = (num) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
 
     function addLog(msg, colorClass = '') {
         const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-        logs.unshift({ time, msg, colorClass }); 
-        if (logs.length > 80) logs.pop(); 
+        let colorText = colorClass === 'positive' ? 'color: var(--tw-red);' : (colorClass === 'negative' ? 'color: var(--tw-green);' : '');
+        logs.unshift({ time, msg, colorText }); 
+        if (logs.length > 50) logs.pop(); 
         renderLogs();
     }
 
     function renderLogs() {
         const container = document.getElementById('logContainer');
         container.innerHTML = logs.map(l => `
-            <div class="log-item ${l.colorClass}">[${l.time}] ${l.msg}</div>
+            <div class="log-row" style="${l.colorText}">[${l.time}] ${l.msg}</div>
         `).join('');
     }
 
@@ -394,7 +391,7 @@
         const amount = parseFloat(document.getElementById('fundAmount').value);
         if (isNaN(amount) || amount <= 0) return alert('請輸入有效的金額');
         accountBalance += (amount * direction);
-        addLog(direction === 1 ? `成功匯入：+${fmt(amount)} TWD` : `成功匯出：-${fmt(amount)} TWD`, direction === 1 ? 'positive' : 'negative');
+        addLog(direction === 1 ? `匯入：+${fmt(amount)}` : `匯出：-${fmt(amount)}`, direction === 1 ? 'positive' : 'negative');
         document.getElementById('fundAmount').value = '';
         updateCalculations();
     }
@@ -403,7 +400,7 @@
         const tradePrice = parseFloat(document.getElementById('tradePrice').value);
         const qty = parseInt(document.getElementById('tradeQty').value) || 1;
         
-        if (isNaN(tradePrice) || tradePrice <= 0) return alert('請輸入有效的委託交易點數');
+        if (isNaN(tradePrice) || tradePrice <= 0) return alert('請輸入有效的成交點數');
         if (qty <= 0) return alert('口數必須大於0');
 
         const productVal = document.getElementById('tradeProduct').value.split('|');
@@ -429,9 +426,8 @@
                 remainingIncoming -= offsetMultiplier;
                 
                 const dirLabel = pos.direction === 1 ? '多單' : '空單';
-                const pnlText = realizedPnL >= 0 ? `+${fmt(realizedPnL)}` : fmt(realizedPnL);
                 logsToAdd.push({
-                    msg: `【跨商品抵銷】以 ${productName} 平倉 ${pos.productName}${dirLabel}，抵扣乘數 ${offsetMultiplier}，平倉價 ${fmt(tradePrice)}。損益：${pnlText} TWD`,
+                    msg: `【對沖平倉】${pos.productName}${dirLabel}，抵扣乘數 ${offsetMultiplier}，損益：${realizedPnL >= 0 ? '+' : ''}${fmt(realizedPnL)}`,
                     isPositive: realizedPnL >= 0
                 });
             }
@@ -452,7 +448,7 @@
             
             const dirLabel = direction === 1 ? '買入多單' : '賣出空單';
             logsToAdd.push({
-                msg: `【建倉/剩餘轉單】${productName} ${dirLabel}，等值乘數 ${remainingIncoming}，成交價：${fmt(tradePrice)}`,
+                msg: `【新倉】${productName} ${dirLabel}，乘數 ${remainingIncoming}，成交價：${fmt(tradePrice)}`,
                 isPositive: null
             });
 
@@ -469,11 +465,14 @@
         });
 
         updateCalculations();
+        
+        // 下單後自動跳轉到庫存頁面方便查看
+        switchTab('inventory', '庫存管理');
     }
 
     function manualClose(id) {
         const marketPrice = parseFloat(document.getElementById('marketPrice').value) || 0;
-        if (marketPrice <= 0) return alert('請先輸入「現在市場點數」作為平倉價格');
+        if (marketPrice <= 0) return alert('請先輸入上方「目前市價點數」作為平倉價格');
 
         const index = positions.findIndex(p => p.id === id);
         if (index > -1) {
@@ -485,14 +484,14 @@
             positions.splice(index, 1);
             
             const dirLabel = pos.direction === 1 ? '多單' : '空單';
-            addLog(`【手動平倉】結清 ${pos.productName}${dirLabel}，平倉價 ${fmt(marketPrice)}。損益：${realizedPnL >= 0 ? '+' : ''}${fmt(realizedPnL)} TWD`, realizedPnL >= 0 ? 'positive' : 'negative');
+            addLog(`【手動平倉】${pos.productName}${dirLabel}，損益：${realizedPnL >= 0 ? '+' : ''}${fmt(realizedPnL)}`, realizedPnL >= 0 ? 'positive' : 'negative');
             
             updateCalculations();
         }
     }
 
     function resetAccount() {
-        if(confirm('確定要清空所有資料嗎？')) {
+        if(confirm('警告：確定要清空所有資料嗎？此動作無法復原！')) {
             accountBalance = 0;
             positions = [];
             logs = [];
@@ -509,20 +508,19 @@
         const mClear = parseFloat(document.getElementById('settingClear').value) || 0;
 
         document.getElementById('marginPreview').innerHTML = `
-            <strong>🔄 自動換算結果：</strong><br>
-            <strong>【小台】</strong> 原始：${fmt(mInitial * 5)} | 維持：${fmt(mMaint * 5)} | 結算：${fmt(mClear * 5)}<br>
-            <strong>【大台】</strong> 原始：${fmt(mInitial * 20)} | 維持：${fmt(mMaint * 20)} | 結算：${fmt(mClear * 20)}
+            小台換算: 原始 ${fmt(mInitial * 5)} / 維持 ${fmt(mMaint * 5)}<br>
+            大台換算: 原始 ${fmt(mInitial * 20)} / 維持 ${fmt(mMaint * 20)}
         `;
 
         const marketPrice = parseFloat(document.getElementById('marketPrice').value) || 0;
         
         let totalUnrealizedPnL = 0;
         let totalMultiplierInInventory = 0;
-        let totalContractValue = 0; // 用於計算槓桿
-        let netDelta = 0; // 淨曝險乘數
+        let totalContractValue = 0; 
+        let netDelta = 0; 
         
-        const tbody = document.getElementById('inventoryBody');
-        tbody.innerHTML = '';
+        const container = document.getElementById('inventoryContainer');
+        container.innerHTML = '';
 
         positions.forEach(pos => {
             totalMultiplierInInventory += pos.currentMultiplier;
@@ -532,24 +530,35 @@
             if (marketPrice > 0) {
                 pnl = (marketPrice - pos.entryPrice) * pos.direction * pos.currentMultiplier;
                 totalUnrealizedPnL += pnl;
-                totalContractValue += (marketPrice * pos.currentMultiplier); // 累加目前合約名目總市值
+                totalContractValue += (marketPrice * pos.currentMultiplier); 
             }
 
-            const tr = document.createElement('tr');
-            const dirText = pos.direction === 1 ? '<span style="color:var(--red-up);font-weight:bold;">多</span>' : '<span style="color:var(--green-down);font-weight:bold;">空</span>';
-            const pnlClass = pnl > 0 ? 'positive' : (pnl < 0 ? 'negative' : '');
+            // iOS 卡片化庫存列表
+            const dirBadge = pos.direction === 1 ? '<span class="badge badge-red">多單</span>' : '<span class="badge badge-green">空單</span>';
+            const pnlClass = pnl > 0 ? 'val-red' : (pnl < 0 ? 'val-green' : '');
             
-            tr.innerHTML = `
-                <td>${pos.time}</td>
-                <td>${pos.productName}</td>
-                <td>${dirText}</td>
-                <td><span class="unit-badge">${pos.currentMultiplier}</span></td>
-                <td>${fmt(pos.entryPrice)}</td>
-                <td>${marketPrice > 0 ? fmt(marketPrice) : '-'}</td>
-                <td class="${pnlClass}">${marketPrice > 0 ? fmt(pnl) : '-'}</td>
-                <td><button class="btn-blue" style="padding:0.3rem 0.6rem;font-size:0.85rem; background-color:#6c757d;" onclick="manualClose(${pos.id})">以此價全平</button></td>
+            const card = document.createElement('div');
+            card.className = 'inv-card';
+            card.innerHTML = `
+                <div class="inv-header">
+                    <span class="inv-title">${pos.productName} ${dirBadge}</span>
+                    <span class="inv-time">${pos.time}</span>
+                </div>
+                <div class="inv-body">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span>建倉成本: <b>${fmt(pos.entryPrice)}</b></span>
+                        <span>等值乘數: <b>${pos.currentMultiplier}</b></span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>目前市價: ${marketPrice > 0 ? fmt(marketPrice) : '-'}</span>
+                        <span>未平倉損益: <b class="${pnlClass}">${marketPrice > 0 ? fmt(pnl) : '-'}</b></span>
+                    </div>
+                </div>
+                <div class="inv-action">
+                    <button class="btn-blue" style="padding: 8px 16px; font-size:14px; width:auto; border-radius:6px;" onclick="manualClose(${pos.id})">以此市價平倉</button>
+                </div>
             `;
-            tbody.appendChild(tr);
+            container.appendChild(card);
         });
 
         document.getElementById('emptyMsg').style.display = positions.length === 0 ? 'block' : 'none';
@@ -558,7 +567,6 @@
         let totalRequiredInitial = (totalMultiplierInInventory / 10) * mInitial;
         let totalRequiredMaint = (totalMultiplierInInventory / 10) * mMaint;
 
-        // --- 槓桿比率計算邏輯 ---
         let leverage = 0;
         let leveragePct = 0;
         if (currentEquity > 0 && totalContractValue > 0) {
@@ -566,14 +574,14 @@
             leveragePct = leverage * 100;
         }
 
-        // --- 斷頭與追繳風險預測邏輯 ---
+        // 斷頭風險預測
         const dangerAlert = document.getElementById('dangerAlert');
         if (positions.length === 0 || marketPrice === 0) {
             dangerAlert.style.display = 'none';
         } else if (netDelta === 0) {
             dangerAlert.style.display = 'block';
             dangerAlert.className = 'danger-alert safe';
-            dangerAlert.innerHTML = '🛡️ 目前多空完全對鎖，淨曝險為 0，不受大盤點數漲跌影響。';
+            dangerAlert.innerHTML = '🛡️ 多空完全對鎖，淨曝險為 0，無點數跳動風險。';
         } else {
             dangerAlert.style.display = 'block';
             dangerAlert.className = 'danger-alert';
@@ -584,64 +592,56 @@
             const ptsToMaint = (currentEquity - totalRequiredMaint) / absDelta;
             const ptsToLiq = (currentEquity - totalRequiredInitial * 0.25) / absDelta;
             
-            let alertHtml = `📉 <strong>部位淨曝險：偏${netDelta > 0 ? '多' : '空'}</strong> (每點跳動 ${fmt(absDelta)} TWD)<br>`;
+            let alertHtml = `<b>部位偏${netDelta > 0 ? '多' : '空'}</b> (每點跳動 ${fmt(absDelta)} 元)<br>`;
             
             if (ptsToMaint > 0) {
-                alertHtml += `若大盤再 <strong style="color:var(--red-up);">${directionText}</strong> <span class="highlight-maint">${fmt(ptsToMaint)}</span> 點，將低於維持保證金 (面臨盤後追繳)。<br>`;
+                alertHtml += `大盤若再 <b style="color:#D8000C;">${directionText} ${fmt(ptsToMaint)} 點</b>，將低於維持保證金。<br>`;
             } else {
-                alertHtml += `🚨 <strong>目前已低於維持保證金 (已達追繳標準)！</strong><br>`;
+                alertHtml += `🚨 <b>目前已低於維持保證金！</b><br>`;
             }
             
             if (ptsToLiq > 0) {
-                alertHtml += `若大盤再 <strong style="color:var(--red-up);">${directionText}</strong> <span class="highlight-liq">${fmt(ptsToLiq)}</span> 點，將觸發 25% 強制斷頭！`;
+                alertHtml += `大盤若再 <b style="color:#D8000C;">${directionText}</b> <span class="highlight-liq">${fmt(ptsToLiq)}</span> <b>點</b>，觸發強制斷頭！`;
             } else {
-                alertHtml += `💥 <span class="highlight-liq" style="font-size:1.6rem; margin-top:10px;">目前已低於 25% 原始保證金 (面臨強制斷頭)！</span>`;
+                alertHtml += `💥 <span class="highlight-liq" style="display:block; text-align:center; margin-top:10px;">已達強制斷頭標準！</span>`;
             }
             dangerAlert.innerHTML = alertHtml;
         }
 
         let marginRatio = 0;
         let ratioText = 'N/A';
-        let ratioClass = '';
+        let ratioColor = '';
 
         if (totalRequiredInitial > 0) {
             marginRatio = (currentEquity / totalRequiredInitial) * 100;
             ratioText = `${marginRatio.toFixed(2)}%`;
-            
-            if (marginRatio >= 250) {
-                ratioClass = 'risk-blue';
-            } else if (marginRatio >= 200) {
-                ratioClass = 'risk-green';
-            } else if (marginRatio >= 160) {
-                ratioClass = 'risk-orange';
-            } else {
-                ratioClass = 'risk-red';
-            }
+            if (marginRatio >= 250) ratioColor = 'var(--ios-blue)';
+            else if (marginRatio >= 200) ratioColor = 'var(--tw-green)';
+            else if (marginRatio >= 160) ratioColor = 'var(--risk-orange)';
+            else ratioColor = 'var(--tw-red)';
         }
 
-        // --- 渲染畫面資料 ---
+        // 更新總覽 UI
         document.getElementById('dispBalance').textContent = fmt(accountBalance);
         
         const dispUnreal = document.getElementById('dispUnrealized');
         dispUnreal.textContent = fmt(totalUnrealizedPnL);
-        dispUnreal.className = 'stat-value ' + (totalUnrealizedPnL > 0 ? 'positive' : (totalUnrealizedPnL < 0 ? 'negative' : ''));
+        dispUnreal.className = 'data-value ' + (totalUnrealizedPnL > 0 ? 'val-red' : (totalUnrealizedPnL < 0 ? 'val-green' : ''));
         
         const dispEq = document.getElementById('dispEquity');
         dispEq.textContent = fmt(currentEquity);
-        dispEq.className = 'stat-value ' + (currentEquity < 0 ? 'negative' : '');
+        dispEq.className = 'data-value large ' + (currentEquity < 0 ? 'val-green' : '');
 
         const dispLev = document.getElementById('dispLeverage');
         if (currentEquity <= 0 && positions.length > 0) {
             dispLev.textContent = '超額虧損';
-            dispLev.className = 'stat-value negative';
-            dispLev.style.color = '#dc3545';
+            dispLev.className = 'data-value val-green';
         } else if (marketPrice === 0) {
             dispLev.textContent = '請輸入市價';
-            dispLev.className = 'stat-value';
+            dispLev.className = 'data-value';
         } else {
-            dispLev.textContent = leverage > 0 ? `${leverage.toFixed(2)} 倍 (${fmt(leveragePct)}%)` : '0.00 倍 (0%)';
-            dispLev.className = 'stat-value';
-            dispLev.style.color = 'var(--purple-lev)';
+            dispLev.textContent = leverage > 0 ? `${leverage.toFixed(1)} 倍 (${fmt(leveragePct)}%)` : '0 倍';
+            dispLev.className = 'data-value val-purple';
         }
 
         document.getElementById('dispReqInitial').textContent = fmt(totalRequiredInitial);
@@ -649,20 +649,24 @@
 
         const dispMargin = document.getElementById('dispMarginRatio');
         dispMargin.textContent = ratioText;
-        dispMargin.className = 'stat-value ' + ratioClass;
+        dispMargin.style.color = ratioColor;
 
         saveData(); 
     }
-    // 👇👇 在 script 的最底下加入這段 👇👇
+
+    // 啟動執行
+    window.onload = loadData;
+
+    /* =========================================
+       註冊 Service Worker (達成離線與 APP 桌面開啟)
+    ========================================= */
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker 註冊成功'))
-                .catch(err => console.log('Service Worker 註冊失敗', err));
+                .then(reg => console.log('SW Registered'))
+                .catch(err => console.log('SW Error', err));
         });
     }
-
-    window.onload = loadData;
 </script>
 
 </body>
