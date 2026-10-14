@@ -24,7 +24,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
-            padding: 1rem 0.5rem; /* 手機縮小邊距 */
+            padding: 1rem 0.5rem; 
             margin: 0;
             display: flex;
             justify-content: center;
@@ -37,7 +37,7 @@
         }
         .card {
             background-color: var(--card-bg);
-            padding: 1rem; /* 手機卡片內距縮小 */
+            padding: 1rem; 
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
@@ -57,7 +57,7 @@
             flex-wrap: wrap;
         }
         .form-group {
-            flex: 1 1 45%; /* 手機上自動兩欄或單欄 */
+            flex: 1 1 45%; 
             min-width: 120px;
         }
         label {
@@ -92,10 +92,9 @@
         .btn-green { background-color: var(--green-down); }
         .btn-gray { background-color: #6c757d; font-size: 0.85rem; padding: 0.4rem; }
         
-        /* 總覽數據面板優化 */
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 手機強制兩欄 */
+            grid-template-columns: repeat(2, 1fr); 
             gap: 0.5rem;
             background-color: #e9ecef;
             padding: 0.8rem;
@@ -157,7 +156,6 @@
             100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
 
-        /* 表格與手機版卡片轉換 */
         table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.9rem; }
         th, td { text-align: left; padding: 0.6rem; border-bottom: 1px solid var(--border-color); }
         th { background-color: #f8f9fa; font-weight: 600; white-space: nowrap; }
@@ -169,9 +167,7 @@
         .asset-badge { background: var(--blue-action); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
         .asset-badge.stock { background: #fd7e14; }
 
-        /* ====== 手機版優化 RWD (核心變更處) ====== */
         @media (max-width: 768px) {
-            /* 隱藏原生表格標頭，將 <tr> 轉為卡片 */
             table, thead, tbody, th, td, tr { display: block; width: 100%; box-sizing: border-box; }
             thead tr { display: none; }
             tr { 
@@ -191,7 +187,6 @@
                 text-align: right; 
             }
             td:last-child { border-bottom: none; justify-content: center; margin-top: 0.5rem; padding: 0; }
-            /* 透過 data-label 屬性自動生成卡片標題 */
             td::before { 
                 content: attr(data-label); 
                 font-weight: 600; 
@@ -199,7 +194,7 @@
                 text-align: left; 
                 padding-right: 1rem; 
             }
-            .form-group { flex: 1 1 100%; } /* 輸入框在極小螢幕自動換行 */
+            .form-group { flex: 1 1 100%; } 
             .flex-row > button { flex: 1; }
         }
     </style>
@@ -265,7 +260,6 @@
             </select>
         </div>
 
-        <!-- 台指期貨表單 -->
         <div id="indexForm">
             <div class="flex-row">
                 <div class="form-group">
@@ -282,12 +276,11 @@
                 </div>
                 <div class="form-group">
                     <label>成交點數</label>
-                    <input type="number" id="indexPrice" placeholder="點數">
+                    <input type="number" id="indexPrice" placeholder="點數" step="any">
                 </div>
             </div>
         </div>
 
-        <!-- 股票期貨表單 -->
         <div id="stockForm" style="display:none; background: #fff8eb; padding: 0.8rem; border-radius: 8px; border: 1px solid #ffeeba;">
             <div class="form-group" style="margin-bottom:0.8rem;">
                 <label style="color:#d39e00;">快速載入範本</label>
@@ -316,11 +309,11 @@
             <div class="flex-row">
                 <div class="form-group">
                     <label>原保(%)</label>
-                    <input type="number" id="stockIM" value="13.5" step="0.1">
+                    <input type="number" id="stockIM" value="13.5" step="any">
                 </div>
                 <div class="form-group">
                     <label>維保(%)</label>
-                    <input type="number" id="stockMM" value="10.35" step="0.1">
+                    <input type="number" id="stockMM" value="10.35" step="any">
                 </div>
             </div>
             <div class="flex-row">
@@ -330,7 +323,7 @@
                 </div>
                 <div class="form-group">
                     <label>成交股價(元)</label>
-                    <input type="number" id="stockPrice" placeholder="股價">
+                    <input type="number" id="stockPrice" placeholder="股價" step="any">
                 </div>
             </div>
         </div>
@@ -396,6 +389,7 @@
     let positions = [];
     let logs = [];
     let marketPrices = {}; 
+    let currentRenderedUnderlyings = ""; // 用來記錄當前渲染的市價輸入框標的
     
     function loadData() {
         const savedBalance = localStorage.getItem('future_balance_v8');
@@ -477,7 +471,15 @@
     }
 
     function handlePriceInput(underlying, value) {
-        marketPrices[underlying] = parseFloat(value) || 0;
+        // 如果清空，將值刪除，否則解析為浮點數（支援小數點輸入）
+        if (value === '') {
+            delete marketPrices[underlying];
+        } else {
+            const parsed = parseFloat(value);
+            if (!isNaN(parsed)) {
+                marketPrices[underlying] = parsed;
+            }
+        }
         updateCalculations();
     }
 
@@ -578,6 +580,7 @@
     function resetAccount() {
         if(confirm('清空所有資料？')) {
             accountBalance = 0; positions = []; logs = []; marketPrices = {};
+            currentRenderedUnderlyings = "";
             updateCalculations(); addLog('重置完成', '');
         }
     }
@@ -595,23 +598,30 @@
         const tbody = document.getElementById('inventoryBody');
         tbody.innerHTML = '';
 
-        const activeUnderlyings = [...new Set(positions.map(p => p.underlying))];
+        // 取得目前有哪些獨特的標的
+        const activeUnderlyings = [...new Set(positions.map(p => p.underlying))].sort();
+        const activeUnderlyingsKey = activeUnderlyings.join('|');
+        
         const priceContainer = document.getElementById('marketPricesContainer');
         const priceInputsWrap = document.getElementById('priceInputsWrap');
         
-        if (activeUnderlyings.length > 0) {
-            priceContainer.style.display = 'block';
-            priceInputsWrap.innerHTML = '';
-            activeUnderlyings.forEach(u => {
-                priceInputsWrap.innerHTML += `
-                    <div class="form-group" style="min-width: 100px;">
-                        <label>${u === 'TAIEX' ? '台指' : u}</label>
-                        <input type="number" value="${marketPrices[u] || ''}" placeholder="市價" oninput="handlePriceInput('${u}', this.value)">
-                    </div>
-                `;
-            });
-        } else {
-            priceContainer.style.display = 'none';
+        // 智慧渲染：只有當「持倉的標的種類改變時」，才重新產生輸入框，避免輸入小數點時中斷
+        if (currentRenderedUnderlyings !== activeUnderlyingsKey) {
+            if (activeUnderlyings.length > 0) {
+                priceContainer.style.display = 'block';
+                priceInputsWrap.innerHTML = '';
+                activeUnderlyings.forEach(u => {
+                    priceInputsWrap.innerHTML += `
+                        <div class="form-group" style="min-width: 100px;">
+                            <label>${u === 'TAIEX' ? '台指' : u}</label>
+                            <input type="number" step="any" value="${marketPrices[u] || ''}" placeholder="市價" oninput="handlePriceInput('${u}', this.value)">
+                        </div>
+                    `;
+                });
+            } else {
+                priceContainer.style.display = 'none';
+            }
+            currentRenderedUnderlyings = activeUnderlyingsKey;
         }
 
         positions.forEach(pos => {
@@ -639,7 +649,6 @@
             const dirText = pos.direction === 1 ? '<span style="color:var(--red-up);font-weight:bold;">多</span>' : '<span style="color:var(--green-down);font-weight:bold;">空</span>';
             const pnlClass = pnl > 0 ? 'positive' : (pnl < 0 ? 'negative' : '');
             
-            // 這裡套用了 data-label 屬性，當螢幕縮小時會作為卡片標題顯示
             tr.innerHTML = `
                 <td data-label="標的(代號)">${typeBadge} <strong>${pos.productName}</strong> <span style="font-size:0.75rem;">(${pos.underlying})</span></td>
                 <td data-label="方向">${dirText}</td>
